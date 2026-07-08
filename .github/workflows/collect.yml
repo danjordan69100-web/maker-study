@@ -1,0 +1,33 @@
+name: maker-study-collect
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run one collection cycle
+        run: python collect_once.py
+      - name: Commit snapshot
+        run: |
+          git config user.name "maker-study-bot"
+          git config user.email "actions@github.com"
+          git add snaps/
+          git commit -m "snap $(date -u +%Y-%m-%dT%H:%M)" || echo "nothing to commit"
+          git pull --rebase origin main || true
+          git push
