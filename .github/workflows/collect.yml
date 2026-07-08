@@ -2,7 +2,7 @@ name: maker-study-collect
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "7 */5 * * *"
   workflow_dispatch:
 
 permissions:
@@ -10,24 +10,27 @@ permissions:
 
 concurrency:
   group: collect
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run one collection cycle
-        run: python collect_once.py
-      - name: Commit snapshot
+      - name: Collection loop (~5h20, one cycle every ~10 min)
         run: |
           git config user.name "maker-study-bot"
           git config user.email "actions@github.com"
-          git add snaps/
-          git commit -m "snap $(date -u +%Y-%m-%dT%H:%M)" || echo "nothing to commit"
-          git pull --rebase origin main || true
-          git push
+          for i in $(seq 1 32); do
+            echo "=== cycle $i/32 $(date -u +%H:%M) ==="
+            python collect_once.py || true
+            git add snaps/
+            git commit -m "snap $(date -u +%Y-%m-%dT%H:%M)" || echo "nothing to commit"
+            git pull --rebase origin main || true
+            git push || true
+            [ "$i" -lt 32 ] && sleep 480
+          done
